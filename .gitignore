@@ -1,0 +1,30 @@
+# Environment (chứa token)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Logs
+logs/
+
+# Config (chứa chat_id)
+btc_bot_config.json
+
+# Temp/demo files
+fetch_demo.py
+
+# Generated images
+*.png
+
+# IDE
+.vscode/
+.idea/
