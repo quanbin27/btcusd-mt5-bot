@@ -56,17 +56,19 @@ User có thể nhập **đỉnh** và **đáy** thủ công rồi bấm **⏭ B�
 - Bất kỳ nến nào (xanh hoặc đỏ) có `High > cluster_high` → `sell_ready = True` 🟡
 - Khi sell_ready bật: `cluster_low` cũng **KHÓA** (không cập nhật theo wick)
 
-#### Bước 4: Chờ phá đáy
+#### Bước 4: Chờ phá đáy (real-time)
 
-| Close nến đỏ | Hành động |
+Khi `sell_ready = True`, bot check giá **mỗi 5 giây** (không đợi nến M15 đóng):
+
+| Giá hiện tại | Hành động |
 |---|---|
-| `Close < cluster_low` | 🔥 **TÍN HIỆU SELL!** → đặt lệnh |
-| `Close >= cluster_low` | Lưu `prev_cluster_low`, tạo cụm mới |
+| `Giá < cluster_low` | ⚡ **TICK BREAK!** → đặt lệnh ngay |
+| Nến đỏ đóng, `Close >= cluster_low` | Lưu `prev_cluster_low`, tạo cụm mới |
 
 #### Bước 5: Đáy cũ chờ phá (prev_cluster_low)
 - Khi sell_ready bật nhưng nến đỏ không phá đáy → đáy cụm cũ được **lưu lại**
-- Bất kỳ nến nào (xanh hoặc đỏ) có `Close < prev_cluster_low` → 🔥 **TÍN HIỆU!**
-- Nếu Close phá **cả 2** (prev + current) → dùng **đáy cao hơn** làm base (sell giá tốt hơn)
+- Giá hiện tại phá `prev_cluster_low` → ⚡ **TICK BREAK!** (check mỗi 5 giây)
+- Nếu giá phá **cả 2** (prev + current) → dùng **đáy cao hơn** làm base (sell giá tốt hơn)
 - Chỉ giữ **1 đáy cũ** gần nhất (bị ghi đè nếu cụm mới cũng sell_ready rồi không phá)
 
 ### Ví dụ minh họa

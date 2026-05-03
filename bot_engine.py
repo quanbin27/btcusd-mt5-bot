@@ -233,6 +233,9 @@ class BotEngine(QThread):
             # No new candle yet – but still monitor orders in phase 3
             if self.phase == 3:
                 self._monitor_orders()
+            # ── Real-time tick check: phá đáy → đánh luôn, không đợi nến đóng ──
+            elif self.signal_active:
+                self._tick_break_check(candles[-1])
             return
 
         self.last_candle_time = candle_time
@@ -329,7 +332,33 @@ class BotEngine(QThread):
         self.log("🔍 Bắt đầu dò tín hiệu sell...")
 
     # ════════════════════════════════════════════════════════
-    #  Signal Detection – Cluster Pattern
+    #  Real-time Break Check (mỗi 5s, không đợi nến đóng)
+    # ════════════════════════════════════════════════════════
+    def _tick_break_check(self, forming_candle: dict):
+        """Check giá hiện tại (nến đang hình thành) phá đáy → đánh luôn."""
+        price = float(forming_candle["close"])  # giá hiện tại
+
+        # Check prev_cluster_low trước
+        if self.prev_cluster_low is not None and price < self.prev_cluster_low:
+            base = self.prev_cluster_low
+            if self.sell_ready and self.cluster_low is not None and price < self.cluster_low:
+                base = max(base, self.cluster_low)
+            self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy {base:.2f}")
+            self.cluster_low = base
+            self._place_entries()
+            self.prev_cluster_low = None
+            self.prev_cluster_signal.emit(0)
+            return
+
+        # Check cluster_low (khi sell_ready)
+        if self.sell_ready and self.cluster_low is not None and price < self.cluster_low:
+            self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy cụm {self.cluster_low:.2f}")
+            self.prev_cluster_low = None
+            self.prev_cluster_signal.emit(0)
+            self._place_entries()
+
+    # ════════════════════════════════════════════════════════
+    #  Signal Detection – Cluster Pattern (nến đã đóng)
     # ════════════════════════════════════════════════════════
     def _signal_detect(self, candle: dict):
         """Cluster-based candle pattern detection."""
