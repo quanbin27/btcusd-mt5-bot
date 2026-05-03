@@ -332,16 +332,22 @@ class BotEngine(QThread):
         self.log("🔍 Bắt đầu dò tín hiệu sell...")
 
     # ════════════════════════════════════════════════════════
-    #  Real-time Break Check (mỗi 5s, không đợi nến đóng)
+    #  Real-time Break Check (mỗi 0.5s, không đợi nến đóng)
     # ════════════════════════════════════════════════════════
     def _tick_break_check(self, forming_candle: dict):
         """Check giá hiện tại (nến đang hình thành) phá đáy → đánh luôn."""
-        price = float(forming_candle["close"])  # giá hiện tại
+        # Chỉ check khi có đáy cần phá
+        has_prev = self.prev_cluster_low is not None
+        has_current = self.sell_ready and self.cluster_low is not None
+        if not has_prev and not has_current:
+            return
+
+        price = float(forming_candle["low"])  # nến chưa đóng → low = giá thấp nhất đã chạm
 
         # Check prev_cluster_low trước
-        if self.prev_cluster_low is not None and price < self.prev_cluster_low:
+        if has_prev and price < self.prev_cluster_low:
             base = self.prev_cluster_low
-            if self.sell_ready and self.cluster_low is not None and price < self.cluster_low:
+            if has_current and price < self.cluster_low:
                 base = max(base, self.cluster_low)
             self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy {base:.2f}")
             self.cluster_low = base
@@ -351,7 +357,7 @@ class BotEngine(QThread):
             return
 
         # Check cluster_low (khi sell_ready)
-        if self.sell_ready and self.cluster_low is not None and price < self.cluster_low:
+        if has_current and price < self.cluster_low:
             self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy cụm {self.cluster_low:.2f}")
             self.prev_cluster_low = None
             self.prev_cluster_signal.emit(0)
@@ -426,6 +432,15 @@ class BotEngine(QThread):
                     self.cluster_low = l
                     self.sell_ready = False
                     self.cluster_signal.emit(self.cluster_low, self.cluster_high, False)
+
+        # ── Log tổng hợp mức đáy đang theo dõi (mỗi nến M15) ──
+        levels = []
+        if self.sell_ready and self.cluster_low is not None:
+            levels.append(f"cụm={self.cluster_low:.2f}")
+        if self.prev_cluster_low is not None:
+            levels.append(f"prev={self.prev_cluster_low:.2f}")
+        if levels:
+            self.log(f"  📍 Đáy cần phá: {', '.join(levels)}")
 
     # ════════════════════════════════════════════════════════
     #  Place Entries & Order Monitoring

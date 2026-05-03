@@ -21,6 +21,7 @@ btc_bot_config.json
 
 # Temp/demo files
 fetch_demo.py
+test_forming.py
 
 # Generated images
 *.png

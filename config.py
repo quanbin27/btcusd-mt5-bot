@@ -32,4 +32,4 @@ TELEGRAM_CHAT_ID = "-5257889262"
 # Bot internals
 MAGIC_NUMBER = 202604
 DEVIATION = 50
-CANDLE_POLL_SECONDS = 5  # how often to check for new candle
+CANDLE_POLL_SECONDS = 0.5  # how often to check for new candle
