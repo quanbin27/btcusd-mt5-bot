@@ -342,8 +342,12 @@ class BotEngine(QThread):
 
         # ── Kiểm tra phá đáy cụm cũ (đang chờ) ──
         if self.prev_cluster_low is not None and c < self.prev_cluster_low:
-            self.log(f"  🔥 TÍN HIỆU! Close {c:.2f} phá đáy cụm cũ {self.prev_cluster_low:.2f}")
-            self.cluster_low = self.prev_cluster_low  # dùng đáy cũ làm base
+            base = self.prev_cluster_low
+            # Nếu cụm hiện tại (sell_ready) cũng bị phá → dùng đáy cao hơn
+            if self.sell_ready and self.cluster_low is not None and c < self.cluster_low:
+                base = max(base, self.cluster_low)
+            self.log(f"  🔥 TÍN HIỆU! Close {c:.2f} phá đáy {base:.2f}")
+            self.cluster_low = base
             self._place_entries()
             self.prev_cluster_low = None
             self.prev_cluster_signal.emit(0)
@@ -365,10 +369,13 @@ class BotEngine(QThread):
             self.cluster_low = l
             self.log(f"  📦 Đáy cụm cập nhật: {self.cluster_low:.2f}")
 
+        # Bật sell_ready khi High phá đỉnh cụm (bất kể xanh/đỏ)
+        if not self.sell_ready and h > self.cluster_high:
+            self.sell_ready = True
+            self.log(f"  🟡 Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
+            self.cluster_signal.emit(self.cluster_low, self.cluster_high, True)
+
         if is_green:
-            if c > self.cluster_high:
-                self.sell_ready = True
-                self.log(f"  🟡 Sell Ready! Close {c:.2f} > đỉnh cụm {self.cluster_high:.2f}")
             self.cluster_signal.emit(self.cluster_low, self.cluster_high, self.sell_ready)
 
         elif is_red:

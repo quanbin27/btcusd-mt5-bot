@@ -53,7 +53,7 @@ User có thể nhập **đỉnh** và **đáy** thủ công rồi bấm **⏭ B�
 - **`cluster_high` KHÓA** từ nến đỏ đầu tiên (không cập nhật)
 
 #### Bước 3: Bật cờ Sell Ready
-- Nến **XANH** có `Close > cluster_high` → `sell_ready = True` 🟡
+- Bất kỳ nến nào (xanh hoặc đỏ) có `High > cluster_high` → `sell_ready = True` 🟡
 - Khi sell_ready bật: `cluster_low` cũng **KHÓA** (không cập nhật theo wick)
 
 #### Bước 4: Chờ phá đáy
@@ -66,6 +66,7 @@ User có thể nhập **đỉnh** và **đáy** thủ công rồi bấm **⏭ B�
 #### Bước 5: Đáy cũ chờ phá (prev_cluster_low)
 - Khi sell_ready bật nhưng nến đỏ không phá đáy → đáy cụm cũ được **lưu lại**
 - Bất kỳ nến nào (xanh hoặc đỏ) có `Close < prev_cluster_low` → 🔥 **TÍN HIỆU!**
+- Nếu Close phá **cả 2** (prev + current) → dùng **đáy cao hơn** làm base (sell giá tốt hơn)
 - Chỉ giữ **1 đáy cũ** gần nhất (bị ghi đè nếu cụm mới cũng sell_ready rồi không phá)
 
 ### Ví dụ minh họa
@@ -74,9 +75,9 @@ User có thể nhập **đỉnh** và **đáy** thủ công rồi bấm **⏭ B�
 Nến 1: ĐỎ  H=78353 L=78212 → 📦 Cụm: đỉnh=78353🔒 đáy=78212
 Nến 2: ĐỎ  L=78129          → đáy cụm = 78129
 Nến 3: ĐỎ  L=78027          → đáy cụm = 78027
-Nến 4: XANH C=78364 > 78353  → 🟡 Sell Ready! Đáy KHÓA = 78027🔒
+Nến 4: XANH H=78400 > 78353  → 🟡 Sell Ready! Đáy KHÓA = 78027🔒
 Nến 5: ĐỎ  C=78329 > 78027  → Không phá → Lưu prev=78027, cụm mới
-Nến 6: XANH C=78366 > 78364  → 🟡 Sell Ready cụm mới!
+Nến 6: ĐỎ  H=78500 > 78364  → 🟡 Sell Ready cụm mới! (High phá đỉnh)
 Nến 7: ĐỎ  C=78207 < 78245  → 🔥 TÍN HIỆU! (phá đáy cũ hoặc mới)
 ```
 
@@ -99,7 +100,7 @@ Hỗ trợ nhiều entry (tối đa 5), mỗi entry có:
 - **TP**: khoảng cách Take Profit
 
 ### 2 chế độ:
-- **Auto Trade BẬT**: Đặt sell limit thật trên MT5 → chuyển GĐ 3
+- **Auto Trade BẬT**: Đặt sell limit thật trên MT5 → chuyển GĐ 3 theo dõi
 - **Auto Trade TẮT**: Chỉ log + gửi Telegram → reset cluster → tiếp tục dò
 
 ---
