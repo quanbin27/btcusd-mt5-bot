@@ -121,16 +121,9 @@ class MT5Handler:
         return info.digits if info else 2
 
     def get_filling_type(self):
-        """Return a supported filling type for the symbol."""
-        info = mt5.symbol_info(self.symbol)
-        if info is None:
-            return mt5.ORDER_FILLING_IOC
-
-        filling = info.filling_mode
-        if filling & mt5.SYMBOL_FILLING_FOK:
-            return mt5.ORDER_FILLING_FOK
-        elif filling & mt5.SYMBOL_FILLING_IOC:
-            return mt5.ORDER_FILLING_IOC
+        """Return filling type cho Sell Limit.
+        Dùng RETURN: nếu partial fill → phần còn lại tiếp tục chờ.
+        """
         return mt5.ORDER_FILLING_RETURN
 
     # ── Order Management ────────────────────────────────────
