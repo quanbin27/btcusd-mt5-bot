@@ -335,21 +335,28 @@ class BotEngine(QThread):
     #  Real-time Break Check (mỗi 0.5s, không đợi nến đóng)
     # ════════════════════════════════════════════════════════
     def _tick_break_check(self, forming_candle: dict):
-        """Check giá hiện tại (nến đang hình thành) phá đáy → đánh luôn."""
-        # Chỉ check khi có đáy cần phá
+        """Check nến đang hình thành: High phá đỉnh → sell_ready, Low phá đáy → đánh luôn."""
+        h = float(forming_candle["high"])
+        low = float(forming_candle["low"])
+
+        # ── Tick check sell_ready: High phá đỉnh cụm ──
+        if not self.sell_ready and self.cluster_high is not None and h > self.cluster_high:
+            self.sell_ready = True
+            self.log(f"  🟡 TICK Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
+            self.cluster_signal.emit(self.cluster_low, self.cluster_high, True)
+
+        # ── Tick check phá đáy ──
         has_prev = self.prev_cluster_low is not None
         has_current = self.sell_ready and self.cluster_low is not None
         if not has_prev and not has_current:
             return
 
-        price = float(forming_candle["low"])  # nến chưa đóng → low = giá thấp nhất đã chạm
-
         # Check prev_cluster_low trước
-        if has_prev and price < self.prev_cluster_low:
+        if has_prev and low < self.prev_cluster_low:
             base = self.prev_cluster_low
-            if has_current and price < self.cluster_low:
+            if has_current and low < self.cluster_low:
                 base = max(base, self.cluster_low)
-            self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy {base:.2f}")
+            self.log(f"  ⚡ TICK BREAK! Low {low:.2f} phá đáy {base:.2f}")
             self.cluster_low = base
             self._place_entries()
             self.prev_cluster_low = None
@@ -357,8 +364,8 @@ class BotEngine(QThread):
             return
 
         # Check cluster_low (khi sell_ready)
-        if has_current and price < self.cluster_low:
-            self.log(f"  ⚡ TICK BREAK! Giá {price:.2f} phá đáy cụm {self.cluster_low:.2f}")
+        if has_current and low < self.cluster_low:
+            self.log(f"  ⚡ TICK BREAK! Low {low:.2f} phá đáy cụm {self.cluster_low:.2f}")
             self.prev_cluster_low = None
             self.prev_cluster_signal.emit(0)
             self._place_entries()
@@ -399,16 +406,17 @@ class BotEngine(QThread):
             return
 
         # ── Đã có cụm ──
+        # TRƯỚC TIÊN: check sell_ready (lock đáy trước khi cập nhật)
+        if not self.sell_ready and h > self.cluster_high:
+            self.sell_ready = True
+            self.log(f"  🟡 Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
+            self.log(f"  🔒 Đáy cụm KHÓA tại: {self.cluster_low:.2f}")
+            self.cluster_signal.emit(self.cluster_low, self.cluster_high, True)
+
         # Chỉ cập nhật đáy khi chưa sell_ready (cluster đang hình thành)
         if l < self.cluster_low and not self.sell_ready:
             self.cluster_low = l
             self.log(f"  📦 Đáy cụm cập nhật: {self.cluster_low:.2f}")
-
-        # Bật sell_ready khi High phá đỉnh cụm (bất kể xanh/đỏ)
-        if not self.sell_ready and h > self.cluster_high:
-            self.sell_ready = True
-            self.log(f"  🟡 Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
-            self.cluster_signal.emit(self.cluster_low, self.cluster_high, True)
 
         if is_green:
             self.cluster_signal.emit(self.cluster_low, self.cluster_high, self.sell_ready)
