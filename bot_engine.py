@@ -60,6 +60,7 @@ class BotEngine(QThread):
         self.cluster_high = None
         self.cluster_low = None
         self.sell_ready = False
+        self.had_green = False  # cần ít nhất 1 nến xanh M15 để bật sell_ready
         self.prev_cluster_low = None  # đáy cụm cũ đang chờ phá
 
         # Order monitoring state
@@ -155,7 +156,12 @@ class BotEngine(QThread):
         self.phase_signal.emit(1)
         self.market_state = "tracking_high"
         self.signal_active = False
-        self.log("🚀 Bot đã khởi động – GĐ 1A: Theo dõi đỉnh")
+        self.log("═" * 50)
+        self.log(f"🚀 BTC Sell Bot v{config.BOT_VERSION}")
+        self.log(f"   Account: #{self.mt5h._login} | {self.mt5h._server}")
+        self.log(f"   Symbol:  {self.mt5h.symbol}")
+        self.log("═" * 50)
+        self.log("GĐ 1A: Theo dõi đỉnh")
         self.status_signal.emit("GĐ 1A: Theo dõi đỉnh")
 
         # Initialize with current price
@@ -325,6 +331,7 @@ class BotEngine(QThread):
         self.cluster_high = None
         self.cluster_low = None
         self.sell_ready = False
+        self.had_green = False
         self.prev_cluster_low = None
         self.phase = 2
         self.phase_signal.emit(2)
@@ -339,10 +346,12 @@ class BotEngine(QThread):
         h = float(forming_candle["high"])
         low = float(forming_candle["low"])
 
-        # ── Tick check sell_ready: High phá đỉnh cụm ──
-        if not self.sell_ready and self.cluster_high is not None and h > self.cluster_high:
+        # ── Tick check sell_ready: cần had_green + High phá đỉnh cụm ──
+        if (not self.sell_ready and self.had_green
+                and self.cluster_high is not None and h > self.cluster_high):
             self.sell_ready = True
             self.log(f"  🟡 TICK Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
+            self.log(f"  🔒 Đáy cụm KHÓA tại: {self.cluster_low:.2f}")
             self.cluster_signal.emit(self.cluster_low, self.cluster_high, True)
 
         # ── Tick check phá đáy ──
@@ -401,13 +410,19 @@ class BotEngine(QThread):
                 self.cluster_high = h
                 self.cluster_low = l
                 self.sell_ready = False
+                self.had_green = False
                 self.log(f"  📦 Cụm mới: đỉnh={h:.2f} đáy={l:.2f}")
                 self.cluster_signal.emit(self.cluster_low, self.cluster_high, False)
             return
 
         # ── Đã có cụm ──
-        # TRƯỚC TIÊN: check sell_ready (lock đáy trước khi cập nhật)
-        if not self.sell_ready and h > self.cluster_high:
+        # Ghi nhận nến xanh
+        if is_green and not self.had_green:
+            self.had_green = True
+            self.log(f"  🟢 Nến xanh đầu tiên → đủ điều kiện sell_ready")
+
+        # check sell_ready: cần had_green + High phá đỉnh (lock đáy trước khi cập nhật)
+        if not self.sell_ready and self.had_green and h > self.cluster_high:
             self.sell_ready = True
             self.log(f"  🟡 Sell Ready! High {h:.2f} > đỉnh cụm {self.cluster_high:.2f}")
             self.log(f"  🔒 Đáy cụm KHÓA tại: {self.cluster_low:.2f}")
@@ -439,6 +454,7 @@ class BotEngine(QThread):
                     self.cluster_high = h
                     self.cluster_low = l
                     self.sell_ready = False
+                    self.had_green = False
                     self.cluster_signal.emit(self.cluster_low, self.cluster_high, False)
 
         # ── Log tổng hợp mức đáy đang theo dõi (mỗi nến M15) ──
@@ -550,6 +566,7 @@ class BotEngine(QThread):
         self.cluster_high = None
         self.cluster_low = None
         self.sell_ready = False
+        self.had_green = False
         self.prev_cluster_low = None
         self.orders_placed = False
         self.had_filled_positions = False

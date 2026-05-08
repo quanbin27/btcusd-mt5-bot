@@ -2,6 +2,8 @@
 # BTC Sell Bot – Default Configuration
 # ============================================================
 
+BOT_VERSION = "260508"  # YYMMDD
+
 # MT5 connection defaults
 MT5_LOGIN = 0
 MT5_PASSWORD = ""

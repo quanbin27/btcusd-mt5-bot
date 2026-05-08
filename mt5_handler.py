@@ -57,7 +57,7 @@ class MT5Handler:
         self._password = password
         self._server = server
         self._path = path or ""
-        return True, f"Connected – Account #{login} on {server}"
+        return True, f"Connected – Account #{login} | {server} | {self.symbol}"
 
     def disconnect(self):
         """Shutdown MT5 connection."""
