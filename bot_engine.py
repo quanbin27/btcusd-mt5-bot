@@ -533,19 +533,41 @@ class BotEngine(QThread):
         self.log(f"📡 Đã đặt {placed_count} lệnh. Đang theo dõi...")
 
     def _monitor_orders(self):
-        """Monitor filled positions. If TP hit → cancel remaining pending."""
+        """Monitor orders in Phase 3.
+        - Pending order: nếu giá đã chạm TP → cancel (cơ hội đã qua)
+        - Position: theo dõi, nếu tất cả đóng → cancel pending còn lại → reset
+        """
         positions = self.mt5h.get_open_positions()
         pending = self.mt5h.get_pending_orders()
 
         if len(positions) > 0:
             self.had_filled_positions = True
 
+        # ── Check pending orders: giá đã chạm TP → cancel ──
+        if len(pending) > 0:
+            price = self.mt5h.get_current_price()
+            if price is not None:
+                for order in pending:
+                    # Sell Limit: TP nằm dưới entry → giá chạm TP khi price <= tp
+                    if order.tp > 0 and price <= order.tp:
+                        ok, msg = self.mt5h.cancel_order(order.ticket)
+                        self.log(f"  🚫 Giá {price:.2f} đã chạm TP {order.tp:.2f} "
+                                 f"→ cancel pending #{order.ticket} @ {order.price_open:.2f} | {msg}")
+
+        # ── Tất cả position đã đóng → cleanup ──
         if self.had_filled_positions and len(positions) == 0:
             self.log("✅ TP HIT! Tất cả vị thế đã đóng. Đang hủy lệnh chờ...")
             messages = self.mt5h.cancel_all_pending()
             for m in messages:
                 self.log(f"  {m}")
             self.log("🏁 Chu kỳ hoàn tất. Quay lại Giai đoạn 1.")
+            self._reset_to_phase1()
+            return
+
+        # ── Không còn pending lẫn position → reset (tất cả bị cancel qua TP check) ──
+        pending_now = self.mt5h.get_pending_orders()
+        if len(positions) == 0 and len(pending_now) == 0:
+            self.log("📭 Không còn lệnh nào (pending đã cancel qua TP). Quay lại GĐ 1.")
             self._reset_to_phase1()
             return
 

@@ -185,6 +185,20 @@ class MT5Handler:
                 messages.append(f"Failed cancel #{order.ticket} rc={rc}")
         return messages
 
+    def cancel_order(self, ticket: int) -> tuple[bool, str]:
+        """Cancel a single pending order by ticket."""
+        request = {
+            "action": mt5.TRADE_ACTION_REMOVE,
+            "order": ticket,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self.get_filling_type(),
+        }
+        result = mt5.order_send(request)
+        if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+            return True, f"Cancelled #{ticket}"
+        rc = result.retcode if result else "None"
+        return False, f"Failed cancel #{ticket} rc={rc}"
+
     def get_pending_orders(self) -> list:
         """Return list of pending orders for this symbol + magic."""
         orders = mt5.orders_get(symbol=self.symbol)
